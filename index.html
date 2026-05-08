@@ -556,12 +556,13 @@
             font-family: Arial, sans-serif;
         }
         .pdf-header {
-            display: flex;
+            position: relative;
             border-bottom: 2px solid black;
             padding-bottom: 10px;
             margin-bottom: 15px;
-            align-items: center;
             min-height: 90px;
+            display: flex;
+            align-items: center;
         }
         .pdf-logo-img {
             height: 75px;
@@ -571,7 +572,10 @@
             flex-shrink: 0;
         }
         .pdf-meta {
-            margin-left: 24px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
         }
         .pdf-table {
             width: 100%;
@@ -826,10 +830,13 @@
             <tr><td colspan="2" class="bg-grey">Dokumentasi</td></tr>
             <tr>
                 <td colspan="2" style="padding:15px 10px;">
-                    <div id="p_foto_container" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;"></div>
+                    <div id="p_foto_container" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
                 </td>
             </tr>
         </table>
+        <div style="margin-top:10px;padding-top:6px;border-top:1px solid #ccc;text-align:center;font-size:10px;color:#888;font-family:Arial,sans-serif;">
+            Raynold &mdash; Bag. Organisasi Setda Inhu &mdash; v2.0 &mdash; 2026
+        </div>
     </div>
 
     <script>
@@ -1013,8 +1020,8 @@
         uploadedPhotos.forEach(foto => {
             const img = document.createElement('img');
             img.src = foto.dataUrl;
-            // 3 kolom: setiap foto max 31% lebar
-            img.style.cssText = 'width:31%;border-radius:4px;border:1px solid #ccc;';
+            // 2 kolom grid: lebar 100% dalam grid cell
+            img.style.cssText = 'width:100%;border-radius:4px;border:1px solid #ccc;display:block;';
             container.appendChild(img);
         });
 
@@ -1038,27 +1045,30 @@
             pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageW, imgH);
             return pdf;
         } else {
-            // Multi-halaman A4
-            const a4H = 297;
-            const marginMm = 0;
-            const pageH = a4H - marginMm * 2;
-            const scale = pageW / canvas.width; // mm per pixel
-            const totalHeightMm = canvas.height * scale;
+            // Multi-halaman A4 dengan margin atas & bawah
+            const marginMm  = 10; // margin atas & bawah tiap halaman
+            const usableH   = 297 - marginMm * 2; // tinggi konten per halaman
+            const scale     = pageW / canvas.width; // mm per pixel
+            const usableHpx = usableH / scale;     // pixel per halaman
+
             const pdf = new jsPDF('p', 'mm', 'a4');
-            let yOffset = 0; // px already rendered
+            let yOffset = 0;
             let page = 0;
             while (yOffset < canvas.height) {
-                const sliceH = Math.min(pageH / scale, canvas.height - yOffset);
+                const sliceH = Math.min(usableHpx, canvas.height - yOffset);
                 const sliceCanvas = document.createElement('canvas');
                 sliceCanvas.width  = canvas.width;
                 sliceCanvas.height = Math.ceil(sliceH);
                 const ctx = sliceCanvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
                 ctx.drawImage(canvas, 0, yOffset, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
                 const sliceImgH = sliceH * scale;
                 if (page > 0) pdf.addPage();
-                pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.88), 'JPEG', marginMm, marginMm, pageW, sliceImgH);
+                pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, marginMm, pageW, sliceImgH);
                 yOffset += sliceH;
                 page++;
+            }
             }
             return pdf;
         }
