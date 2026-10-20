@@ -1118,9 +1118,20 @@
     /* ══════════════════════════════════════
        KIRIM KE DRIVE
     ══════════════════════════════════════ */
+    // Ambil & validasi ID folder (terima ID polos atau URL penuh .../folders/<ID>)
+    function normalizeFolderId(raw) {
+        let v = String(raw || '').trim();
+        const m = v.match(/\/folders\/([A-Za-z0-9_-]+)/);
+        if (m) v = m[1];
+        return /^[A-Za-z0-9_-]{20,}$/.test(v) ? v : '';
+    }
+
     async function sendToDrive() {
-        const folderId = localStorage.getItem('m_folder_id');
-        if (!folderId) { showToast('ID Folder belum diisi di Pengaturan!'); return; }
+        const folderId = normalizeFolderId(localStorage.getItem('m_folder_id'));
+        if (!folderId) {
+            showToast('ID Folder Google Drive kosong/tidak valid. Isi dulu di Pengaturan!');
+            return;
+        }
         if (!confirm('Kirim laporan ini ke Google Drive kantor?')) return;
 
         const btn = document.getElementById('btnDrive');
@@ -1132,10 +1143,15 @@
             const nama     = localStorage.getItem('m_nama') || 'User';
             const tgl      = document.getElementById('f_tanggal').value.replace(/-/g,'_');
             const fileName = `Laporan_${nama}_${tgl}.pdf`;
-            await fetch(SCRIPT_URL, {
+            const resp = await fetch(SCRIPT_URL, {
                 method: 'POST',
                 body: JSON.stringify({ pdf: pdf.output('datauristring'), filename: fileName, folderId })
             });
+            let hasil = null;
+            try { hasil = await resp.json(); } catch (e) {}
+            if (!hasil || hasil.status !== 'ok') {
+                throw new Error((hasil && hasil.message) || 'Server menolak / tidak merespons');
+            }
             await saveLaporan();
             showToast('Laporan dikirim ke Drive & disimpan ke riwayat!', 'success');
         } catch(err) {
@@ -1350,6 +1366,13 @@
     }
 
     function saveProfile() {
+        const rawFolder = document.getElementById('m_folder_id').value;
+        const folderOk  = normalizeFolderId(rawFolder);
+        if (rawFolder.trim() && !folderOk) {
+            showToast('Format ID Folder tidak valid. Salin ID setelah /folders/ dari URL Drive.');
+            return;
+        }
+        document.getElementById('m_folder_id').value = folderOk;
         ['m_nama','m_nip','m_jabatan','m_folder_id'].forEach(id => {
             localStorage.setItem(id, document.getElementById(id).value);
         });
